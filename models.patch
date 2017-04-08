@@ -1,0 +1,126 @@
+From 0eee9f5c414f1d9a3ccd7c19db946b4a106813dd Mon Sep 17 00:00:00 2001
+From: Victor Nate Graf <vnategraf@gmail.com>
+Date: Sat, 8 Apr 2017 14:45:57 -0500
+Subject: [PATCH] foo
+
+---
+ CTFd/__init__.py |  6 +++---
+ CTFd/models.py   | 35 ++++++++++++++++++++++++++++++++++-
+ 2 files changed, 37 insertions(+), 4 deletions(-)
+
+diff --git a/CTFd/__init__.py b/CTFd/__init__.py
+index fbfeb68..b7d2dd6 100644
+--- a/CTFd/__init__.py
++++ b/CTFd/__init__.py
+@@ -28,7 +28,7 @@ def create_app(config='CTFd.config.Config'):
+         app.config.from_object(config)
+         app.jinja_loader = ThemeLoader(os.path.join(app.root_path, app.template_folder), followlinks=True)
+ 
+-        from CTFd.models import db, Teams, Solves, Challenges, WrongKeys, Keys, Tags, Files, Tracking
++        from CTFd.models import db, Teams, Solves, Challenges, WrongKeys, Keys, Tags, Files, Tracking, FileMappings, Instances
+ 
+         url = make_url(app.config['SQLALCHEMY_DATABASE_URI'])
+         if url.drivername == 'postgres':
+@@ -42,11 +42,11 @@ def create_app(config='CTFd.config.Config'):
+         db.init_app(app)
+ 
+         ## Register Flask-Migrate
+-        migrate.init_app(app, db)
++        # migrate.init_app(app, db)
+ 
+         ## This creates tables instead of db.create_all()
+         ## Allows migrations to happen properly
+-        migrate_upgrade()
++        # migrate_upgrade()
+ 
+         ## Alembic sqlite support is lacking so we should just create_all anyway
+         if url.drivername.startswith('sqlite'):
+diff --git a/CTFd/models.py b/CTFd/models.py
+index 4befa17..6781693 100644
+--- a/CTFd/models.py
++++ b/CTFd/models.py
+@@ -3,6 +3,7 @@ import hashlib
+ import json
+ from socket import inet_aton, inet_ntoa
+ from struct import unpack, pack, error as struct_error
++from os import urandom
+ 
+ from flask_sqlalchemy import SQLAlchemy
+ from passlib.hash import bcrypt_sha256
+@@ -63,6 +64,9 @@ class Challenges(db.Model):
+     category = db.Column(db.String(80))
+     type = db.Column(db.Integer)
+     hidden = db.Column(db.Boolean)
++    instanced = db.Column(db.Boolean)
++    generated = db.Column(db.Boolean)
++    generator = db.Column(db.Text)
+ 
+     def __init__(self, name, description, value, category, type=0):
+         self.name = name
+@@ -70,6 +74,8 @@ class Challenges(db.Model):
+         self.value = value
+         self.category = category
+         self.type = type
++        self.generated = False
++        self.generator = ""
+         # self.flags = json.dumps(flags)
+ 
+     def __repr__(self):
+@@ -129,10 +135,12 @@ class Files(db.Model):
+     id = db.Column(db.Integer, primary_key=True)
+     chal = db.Column(db.Integer, db.ForeignKey('challenges.id'))
+     location = db.Column(db.Text)
++    generated = db.Column(db.Boolean)
+ 
+-    def __init__(self, chal, location):
++    def __init__(self, chal, location, generated=False):
+         self.chal = chal
+         self.location = location
++        self.generated = generated
+ 
+     def __repr__(self):
+         return "<File {0} for challenge {1}>".format(self.location, self.chal)
+@@ -167,11 +175,13 @@ class Teams(db.Model):
+     verified = db.Column(db.Boolean, default=False)
+     admin = db.Column(db.Boolean, default=False)
+     joined = db.Column(db.DateTime, default=datetime.datetime.utcnow)
++    seed = db.Column(db.String(32))
+ 
+     def __init__(self, name, email, password):
+         self.name = name
+         self.email = email
+         self.password = bcrypt_sha256.encrypt(str(password))
++        self.seed = urandom(16).encode('hex')
+ 
+     def __repr__(self):
+         return '<team %r>' % self.name
+@@ -299,3 +309,26 @@ class Config(db.Model):
+     def __init__(self, key, value):
+         self.key = key
+         self.value = value
++
++class FileMappings(db.Model):
++    file = db.Column(db.Integer, db.ForeignKey('files.id'), primary_key=True)
++    instance = db.Column(db.Integer, db.ForeignKey('instances.id'), primary_key=True)
++
++    def __init__(self, file_id, instance):
++        self.file = file_id
++        self.instance = instance
++
++    def __repr__(self):
++        return "<Mapping file {0} to instance {1}>".format(self.file, self.instance)
++
++class Instances(db.Model):
++    id = db.Column(db.Integer, primary_key=True)
++    chal = db.Column(db.Integer, db.ForeignKey('challenges.id'))
++    params = db.Column(db.Text)
++
++    def __init__(self, chal, params):
++        self.chal = chal
++        self.params = params
++
++    def __repr__(self):
++        return "<Instance {0} for challenge {1}>".format(self.params, self.chal)
+-- 
+2.7.4
+
