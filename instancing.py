@@ -118,8 +118,9 @@ def load(app):
                                 update_generated_files(chal.id, files)
 
                             # Query the DB which now include newly added files and static files
-                            files_query = Files.query.filter_by(chal=chal.id)
-                            files = [str(f.location) for f in files_query.all()]
+                            files_query = Files.query.filter(and_(Files.chal == chal.id, Files.generated != True))
+                            files.extend([str(f.location) for f in files_query.all()])
+                            print files
                         else:
                             params, files = get_instance_static(chal.id)
 
@@ -146,7 +147,7 @@ def load(app):
         @wraps(file_handler_func)
         def wrapper(path):
             try:
-                response = file_handler_func(path)
+                return file_handler_func(path)
             except NotFound:
                 f = Files.query.filter_by(location=path).first_or_404()
 
