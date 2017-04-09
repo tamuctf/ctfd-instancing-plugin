@@ -9,10 +9,29 @@ from traceback import format_exception_only
 from StringIO import StringIO
 
 from flask import current_app as app, session
+from flask_caching import Cache
 
 from CTFd.models import db, FileMappings, Teams, Instances, Files
 from binascii import crc32
 
+cache = Cache(app)
+
+def init_instance_log():
+    logger_instancing = logging.getLogger('instancing')
+    logger_instancing.setLevel(logging.INFO)
+    log_dir = os.path.join(app.root_path, 'logs')
+
+    if not os.path.exists(log_dir):
+       os.makedirs(log_dir)
+
+    log = os.path.join(app.root_path, 'logs', 'instancing.log')
+    if not os.path.exists(log):
+        open(log, 'a').close()
+
+    instancing_log = logging.handlers.RotatingFileHandler(log, maxBytes=10000)
+
+    logger_instancing.addHandler(instancing_log)
+    logger_instancing.propagate = 0
 
 
 def hash_choice(items, keys):
@@ -21,7 +40,6 @@ def hash_choice(items, keys):
         code += str(crc32(str(k)))
     index = crc32(code) % len(items)
     return items[index]
-
 
 def choose_instance(chalid):
     instances = Instances.query.filter_by(chal=chalid) \
@@ -58,15 +76,14 @@ def get_instance_static(chal_id):
 
     return params, files
 
-
-def get_instance_dynamic(generator_path):
+@cache.memoize()
+def generate_config(generator_path, seed):
     gen_folder = os.path.join(os.path.normpath(app.root_path), app.config['GENERATOR_FOLDER'])
-    team = Teams.query.add_columns('seed').filter_by(id=session.get('id')).first()
     abs_gen_path = os.path.abspath(os.path.join(gen_folder, generator_path))
     gen_script_dir = os.path.dirname(abs_gen_path)
 
     try:
-        output = subprocess.check_output([abs_gen_path, 'config', team.seed],
+        output = subprocess.check_output([abs_gen_path, 'config', seed],
                                          cwd=gen_script_dir)
 
     except subprocess.CalledProcessError as e:
@@ -96,24 +113,21 @@ def get_instance_dynamic(generator_path):
 
     return params, files
 
-def get_file_dynamic(generator_path, path):
-    """
-    Call upon the given generator to retrieve the file at the given "path"
-    Returns the file object buffered in a StringIO object.
-    """
 
-    # Discard the first piece of the path, which (if generated properly) is simply an anti-collision measure
-    path = '/'.join(path.split('/')[1:])
-
-    gen_folder = os.path.join(os.path.normpath(app.root_path), app.config['GENERATOR_FOLDER'])
+def get_instance_dynamic(generator_path):
     team = Teams.query.add_columns('seed').filter_by(id=session.get('id')).first()
+    return generate_config(generator_path, team.seed)
+
+@cache.memoize()
+def generate_file(generator_path, seed, path):
+    gen_folder = os.path.join(os.path.normpath(app.root_path), app.config['GENERATOR_FOLDER'])
     abs_gen_path = os.path.abspath(os.path.join(gen_folder, generator_path))
     gen_script_dir = os.path.dirname(abs_gen_path)
 
     path_rel = os.path.relpath(os.path.join(gen_folder, path), start=gen_script_dir)
 
     try:
-        output = subprocess.check_output([abs_gen_path, 'file', team.seed, path_rel],
+        output = subprocess.check_output([abs_gen_path, 'file', seed, path_rel],
                                           cwd=gen_script_dir)
 
     except subprocess.CalledProcessError as e:
@@ -126,6 +140,19 @@ def get_file_dynamic(generator_path, path):
         raise_preserve_tb(RuntimeError, msg)
 
     return StringIO(output)
+
+
+def get_file_dynamic(generator_path, path):
+    """
+    Call upon the given generator to retrieve the file at the given "path"
+    Returns the file object buffered in a StringIO object.
+    """
+
+    # Discard the first piece of the path, which (if generated properly) is simply an anti-collision measure
+    path = '/'.join(path.split('/')[1:])
+
+    team = Teams.query.add_columns('seed').filter_by(id=session.get('id')).first()
+    return generate_file(generator_path, team.seed, path)
 
 
 def update_generated_files(chalid, files):

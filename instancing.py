@@ -2,9 +2,10 @@ from CTFd.plugins.keys import get_key_class
 from CTFd.plugins import challenges, keys
 from CTFd.models import db, Keys, FileMappings, Instances, Challenges, Files
 from CTFd.utils import admins_only
-from instancing_utils import get_instance_static, get_file_dynamic, get_instance_dynamic, update_generated_files
+from instancing_utils import get_instance_static, get_file_dynamic, get_instance_dynamic, update_generated_files, init_instance_log
 from werkzeug.exceptions import NotFound
 from flask import Blueprint, request, jsonify, make_response, send_file
+from sqlalchemy import and_
 from functools import wraps
 from jinja2 import Template
 from StringIO import StringIO
@@ -14,8 +15,6 @@ import logging
 import collections
 import io
 import os
-
-
 
 class InstancedChallenge(challenges.BaseChallenge):
     id = 4321
@@ -47,9 +46,9 @@ class InstancedChallenge(challenges.BaseChallenge):
                 return True
         return False
 
-
 def load(app):
     config(app)
+    init_instance_log()
     instancing = Blueprint('instancing', __name__)
 
     @instancing.route('/admin/instances/<chalid>', methods=['POST', 'GET'])
@@ -127,6 +126,7 @@ def load(app):
                         assert isinstance(params, collections.Mapping)
                         assert isinstance(files, collections.Iterable)
                     except:
+                        instance_log = logging.getLogger('instancing')
                         instance_log.exception("instancing error while generating "
                                                "chal list in challenge #{} "
                                                "({})".format(chal.id, item['name']))
@@ -151,7 +151,8 @@ def load(app):
                 f = Files.query.filter_by(location=path).first_or_404()
 
                 if f.generated:
-                    print "Creating", f.location
+                    logger_instancing = logging.getLogger('instancing')
+                    logger_instancing.info("Creating file "+f.location)
                     chal = Challenges.query.filter_by(id=f.chal).first_or_404()
                     try:
                         generated_file = get_file_dynamic(chal.generator, path)
