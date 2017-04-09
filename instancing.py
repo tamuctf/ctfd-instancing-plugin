@@ -2,17 +2,20 @@ from CTFd.plugins.keys import get_key_class
 from CTFd.plugins import challenges, keys
 from CTFd.models import db, Keys, FileMappings, Instances, Challenges, Files
 from CTFd.utils import admins_only
-from instancing_utils import get_instance_static, get_instance_dynamic, update_generated_files
-from flask import Blueprint, request, jsonify
+from instancing_utils import get_instance_static, get_file_dynamic, get_instance_dynamic, update_generated_files
+from werkzeug.exceptions import NotFound
+from flask import Blueprint, request, jsonify, make_response, send_file
 from functools import wraps
 from jinja2 import Template
+from StringIO import StringIO
 from config import config
 import json
 import logging
 import collections
+import io
+import os
 
 
-instance_log = logging.getLogger('instancing')
 
 class InstancedChallenge(challenges.BaseChallenge):
     id = 4321
@@ -21,6 +24,7 @@ class InstancedChallenge(challenges.BaseChallenge):
     @staticmethod
     def solve(chal, provided_flag):
         chal_keys = Keys.query.filter_by(chal=chal.id).all()
+        instance_log = logging.getLogger('instancing')
 
         params = None
         try:
@@ -47,7 +51,6 @@ class InstancedChallenge(challenges.BaseChallenge):
 def load(app):
     config(app)
     instancing = Blueprint('instancing', __name__)
-
 
     @instancing.route('/admin/instances/<chalid>', methods=['POST', 'GET'])
     @admins_only
@@ -142,11 +145,13 @@ def load(app):
     def file_handler_decorator(file_handler_func):
         @wraps(file_handler_func)
         def wrapper(path):
-            response = file_handler_func(path)
-            if response.status == 404:
+            try:
+                response = file_handler_func(path)
+            except NotFound:
                 f = Files.query.filter_by(location=path).first_or_404()
 
                 if f.generated:
+                    print "Creating", f.location
                     chal = Challenges.query.filter_by(id=f.chal).first_or_404()
                     try:
                         generated_file = get_file_dynamic(chal.generator, path)
@@ -163,7 +168,7 @@ def load(app):
                         logger.exception("file request for '{}' failed".format(path))
                         return make_response("File {} unavailable.".format(path), 501)
             
-            return response
+                raise
         return wrapper
 
     def admin_chals_decorator(admin_chals_func):
@@ -197,9 +202,6 @@ def load(app):
         @wraps(admin_update_chal_func)
         def wrapper(*args, **kwargs):
             response = admin_update_chal_func(*args, **kwargs)
-            # Determine if the ouptut is a good call. If not, return the error
-            if response.status_code >= 400:
-                return response
             
             challenge = Challenges.query.filter_by(id=request.form['id']).first_or_404()
             print challenge.name
