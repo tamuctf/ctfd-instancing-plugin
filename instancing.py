@@ -120,7 +120,6 @@ def load(app):
                             # Query the DB which now include newly added files and static files
                             files_query = Files.query.filter(and_(Files.chal == chal.id, Files.generated != True))
                             files.extend([str(f.location) for f in files_query.all()])
-                            print files
                         else:
                             params, files = get_instance_static(chal.id)
 
@@ -206,7 +205,6 @@ def load(app):
             response = admin_update_chal_func(*args, **kwargs)
             
             challenge = Challenges.query.filter_by(id=request.form['id']).first_or_404()
-            print challenge.name
             challenge.instanced = 'instanced' in request.form
 
             db.session.commit()
