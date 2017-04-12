@@ -62,7 +62,6 @@
                         <a href="#" data-toggle="modal" data-target="#update-tags" class="btn btn-primary">Tags</a>
                         <a href="#" data-toggle="modal" data-target="#update-files" class="btn btn-primary">Files</a>
                         <a href="#" data-toggle="modal" data-target="#update-hints" class="btn btn-primary">Hints</a>
-                        <a href="#" data-toggle="modal" data-target="#update-discoveryList" class="btn btn-primary">Discovery</a>
                         <a href="#" data-toggle="modal" data-target="#update-keys" class="btn btn-primary">Keys</a>
                         <a href="#" data-toggle="modal" data-target="#delete-chal" class="btn btn-danger">Delete</a>
                     </div>
@@ -156,35 +155,6 @@
                         <tbody class="text-center">
                         </tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="update-discoveryList" class="modal fade" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header text-center">
-                <h3>Discovery</h3>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <p> At least one dropdown menu will need ALL selected challenges in it to be solved before this challenge.</p>
-                    <a href="#" id="create-discovery" class="btn btn-primary" style="margin-bottom:15px;">New Discovery</a>
-                </div>
-            </div>
-                
-                <input name='nonce' type='hidden' value="{{ nonce }}">
-                <input id="discoveryList-chal" name='chal' type='hidden'>
-                <div id="current-discoveryList"></div>
-                <br/>
-                <div id="chal-discoveryList">
-                </div>
-                <br/>
-                <div class="row" style="text-align:center;margin-top:20px">
-                    <input type="hidden" value="{{ nonce }}" name="nonce" id="nonce">
-                    <button class="btn btn-theme btn-outlined" id="submit-discoveryList">Update</button>
                 </div>
             </div>
         </div>
@@ -382,8 +352,6 @@
         </div>
     </div>
 </div>
-
-
 
 <div id="create-keys" class="modal fade" tabindex="-1">
     <div class="modal-dialog">
