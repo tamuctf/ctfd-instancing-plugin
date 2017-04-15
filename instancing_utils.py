@@ -1,20 +1,22 @@
+from traceback import format_exception_only
+from StringIO import StringIO
+from flask import current_app as app, session
+from flask_caching import Cache
+from CTFd.models import db, FileMappings, Teams, Instances, Files
+from binascii import crc32
 import hashlib
+import errno
 import json
 import logging
 import logging.handlers
 import os
 import subprocess
 import sys
-from traceback import format_exception_only
-from StringIO import StringIO
-
-from flask import current_app as app, session
-from flask_caching import Cache
-
-from CTFd.models import db, FileMappings, Teams, Instances, Files
-from binascii import crc32
 
 cache = Cache(app)
+
+class FileGenAlreadyRunning(Exception):
+    pass
 
 def init_instance_log():
     logger_instancing = logging.getLogger('instancing')
@@ -131,6 +133,9 @@ def generate_file(generator_path, seed, path):
                                           cwd=gen_script_dir)
 
     except subprocess.CalledProcessError as e:
+        if e.returncode == errno.EALREADY:
+            raise FileGenAlreadyRunning()
+
         msg = """subprocess call failed for generator at {} failed with exit code {}
         Last output:
         {}""".format(generator_path, e.returncode, e.output)

@@ -1,10 +1,10 @@
 from CTFd.plugins.keys import get_key_class
 from CTFd.plugins import challenges, keys
 from CTFd.models import db, Keys, FileMappings, Instances, Challenges, Files
-from CTFd.utils import admins_only
-from instancing_utils import get_instance_static, get_file_dynamic, get_instance_dynamic, update_generated_files, init_instance_log
+from CTFd.utils import admins_only, authed
+from instancing_utils import get_instance_static, get_file_dynamic, get_instance_dynamic, update_generated_files, init_instance_log, FileGenAlreadyRunning
 from werkzeug.exceptions import NotFound
-from flask import Blueprint, request, jsonify, make_response, send_file
+from flask import Blueprint, request, jsonify, make_response, send_file, redirect, url_for
 from sqlalchemy import and_
 from functools import wraps
 from jinja2 import Template
@@ -164,6 +164,8 @@ def load(app):
                         else:
                             raise TypeError("Non-file or filename output of {}. Actual type '{}'"
                                             .format(generator.__name__, generated_file.__class__.__name__))
+                    except FileGenAlreadyRunning:
+                        return ('', 204)
                     except Exception as e:
                         logger = logging.getLogger('instancing')
                         logger.exception("file request for '{}' failed".format(path))
