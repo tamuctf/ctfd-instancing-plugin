@@ -148,6 +148,9 @@ def load(app):
             try:
                 return file_handler_func(path)
             except NotFound:
+                if not authed():
+                    return redirect(url_for('auth.login'))
+
                 f = Files.query.filter_by(location=path).first_or_404()
 
                 if f.generated:
