@@ -10,6 +10,6 @@ The install of this plugin is not entirely intuitive. This is partly because the
 3. In the base repo run `git checkout 1.0.2` to checkout to the currently working ctfd version.
 3. Run `git apply --check models.patch` to test the patch
 4. Run `git apply models.patch` to add the instancing models and suppress flask migrations
-5. Move the `template/user` and `template/admin` files into `CTFd/static/<theme>/js/templates/challenges/instanced` and `CTFd/static/admin/js/templates/challenges/instanced` respectively, where `<theme>` is your theme ('origonal' by default)
+5. Move the `template/user` and `template/admin` files into `CTFd/static/<theme>/js/templates/challenges/instanced` and `CTFd/static/admin/js/templates/challenges/instanced` respectively, where `<theme>` is your theme ('original' by default)
 
 Boot everything up and you should be good to go!
